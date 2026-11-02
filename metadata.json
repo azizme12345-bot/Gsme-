@@ -1,0 +1,6 @@
+{
+  "name": "City Drive",
+  "description": "A 3D open world city driving simulation featuring roads, airport runway, traffic, pedestrians, interactive player driving, and dual camera views.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

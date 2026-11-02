@@ -1,0 +1,2233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>City Drive</title>
+  <meta name="description" content="A 3D open world city driving simulation featuring roads, airport runway, traffic, pedestrians, interactive player driving, and dual camera views.">
+  <meta property="og:title" content="City Drive">
+  <meta property="og:description" content="A 3D open world city driving simulation featuring roads, airport runway, traffic, pedestrians, interactive player driving, and dual camera views.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #7ab2e8;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    #game-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+    .hud-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+    }
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      width: 100%;
+    }
+    .brand-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 10px 16px;
+      color: #ffffff;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+    .brand-title {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #38bdf8;
+      line-height: 1.1;
+    }
+    .brand-sub {
+      font-size: 11px;
+      font-weight: 500;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+    .telemetry-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 10px 16px;
+      color: #ffffff;
+      text-align: right;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      min-width: 130px;
+    }
+    .speed-value-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    .speed-number {
+      font-size: 28px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #f8fafc;
+      line-height: 1;
+    }
+    .speed-unit {
+      font-size: 12px;
+      font-weight: 700;
+      color: #38bdf8;
+      letter-spacing: 0.5px;
+    }
+    .gear-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #0284c7;
+      color: #ffffff;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .time-weather-row {
+      font-size: 11px;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+    .hud-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      width: 100%;
+    }
+    .minimap-container {
+      background: rgba(15, 23, 42, 0.85);
+      border: 2px solid rgba(56, 189, 248, 0.4);
+      border-radius: 10px;
+      overflow: hidden;
+      width: 140px;
+      height: 140px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      position: relative;
+    }
+    #minimap-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .minimap-north {
+      position: absolute;
+      top: 4px;
+      left: 6px;
+      font-size: 10px;
+      font-weight: 800;
+      color: #38bdf8;
+    }
+    .prompt-banner {
+      position: absolute;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid #38bdf8;
+      border-radius: 24px;
+      padding: 10px 22px;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.3);
+      display: none;
+      pointer-events: none;
+      animation: promptFade 1.2s infinite alternate ease-in-out;
+    }
+    @keyframes promptFade {
+      from { opacity: 0.8; transform: translate(-50%, 0); }
+      to { opacity: 1.0; transform: translate(-50%, -4px); }
+    }
+    .controls-hint {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 11px;
+      color: #cbd5e1;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    /* Touch controls */
+    .touch-dock {
+      display: flex;
+      gap: 12px;
+      pointer-events: auto;
+    }
+    .touch-btn {
+      width: 62px;
+      height: 62px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      touch-action: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: background 0.1s, transform 0.1s, border-color 0.1s;
+    }
+    .touch-btn:active, .touch-btn.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      transform: scale(0.94);
+    }
+    .touch-btn-gas {
+      background: rgba(13, 148, 136, 0.85);
+      border-color: rgba(45, 212, 191, 0.4);
+    }
+    .touch-btn-gas:active, .touch-btn-gas.active {
+      background: #0d9488;
+      border-color: #2dd4bf;
+    }
+    .touch-btn-brake {
+      background: rgba(225, 29, 72, 0.85);
+      border-color: rgba(251, 113, 133, 0.4);
+    }
+    .touch-btn-brake:active, .touch-btn-brake.active {
+      background: #e11d48;
+      border-color: #fb7185;
+    }
+    .touch-btn-action {
+      background: rgba(30, 41, 59, 0.85);
+      border-color: rgba(56, 189, 248, 0.4);
+      width: 76px;
+    }
+    .touch-actions-top {
+      position: absolute;
+      top: 80px;
+      right: 16px;
+      display: flex;
+      gap: 10px;
+      pointer-events: auto;
+    }
+    @media (min-width: 900px) {
+      .touch-dock {
+        opacity: 0.85;
+      }
+      .minimap-container {
+        width: 170px;
+        height: 170px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <div class="hud-layer">
+    <!-- Top Bar -->
+    <div class="hud-top">
+      <div class="brand-card">
+        <div class="brand-title">City Drive</div>
+        <div class="brand-sub">Modern Metropolis & Airport</div>
+      </div>
+      <div class="telemetry-card">
+        <div class="speed-value-row">
+          <span id="gear-indicator" class="gear-badge">P</span>
+          <span id="speed-display" class="speed-number">0</span>
+          <span class="speed-unit">KM/H</span>
+        </div>
+        <div class="time-weather-row" id="clock-display">14:35 | 23°C Clear</div>
+      </div>
+    </div>
+
+    <!-- Center Interaction Prompt -->
+    <div id="enter-prompt" class="prompt-banner">Press E to Enter Car</div>
+
+    <!-- Top Action Buttons (View, Enter/Exit) -->
+    <div class="touch-actions-top">
+      <div id="btn-view" class="touch-btn touch-btn-action" title="Switch Camera View">
+        <span>VIEW</span>
+        <span style="font-size: 10px; opacity: 0.7; font-weight: normal;">[C]</span>
+      </div>
+      <div id="btn-enter" class="touch-btn touch-btn-action" title="Enter or Exit Car">
+        <span id="btn-enter-text">ENTER</span>
+        <span style="font-size: 10px; opacity: 0.7; font-weight: normal;">[E]</span>
+      </div>
+    </div>
+
+    <!-- Controls desktop reminder -->
+    <div class="controls-hint" id="desktop-hint">
+      WASD / Arrows: Steer & Drive | C: Change Camera | E: Enter/Exit Car
+    </div>
+
+    <!-- Bottom Bar: Minimap + Driving Controls -->
+    <div class="hud-bottom">
+      <div class="minimap-container">
+        <canvas id="minimap-canvas" width="200" height="200"></canvas>
+        <div class="minimap-north">N ▲</div>
+      </div>
+
+      <!-- Steering Controls (Left & Right) -->
+      <div class="touch-dock" style="margin-left: 12px; margin-right: auto;">
+        <div id="btn-left" class="touch-btn" aria-label="Steer Left">◀</div>
+        <div id="btn-right" class="touch-btn" aria-label="Steer Right">▶</div>
+      </div>
+
+      <!-- Pedals (Brake & Gas) -->
+      <div class="touch-dock">
+        <div id="btn-brake" class="touch-btn touch-btn-brake" aria-label="Brake and Reverse">
+          <span>BRAKE</span>
+          <span style="font-size: 10px; opacity: 0.8; font-weight: normal;">REV</span>
+        </div>
+        <div id="btn-gas" class="touch-btn touch-btn-gas" aria-label="Accelerate">
+          <span>GAS</span>
+          <span style="font-size: 10px; opacity: 0.8; font-weight: normal;">ACCEL</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       CITY DRIVE - Complete 3D Driving Simulation with Metropolis & Airport
+       ========================================================================= */
+
+    // 1. Audio Engine (Procedural Web Audio API - zero external files)
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.isMuted = false;
+        this.engineOsc = null;
+        this.engineSub = null;
+        this.engineGain = null;
+        this.filter = null;
+        this.initialized = false;
+      }
+      init() {
+        if (this.initialized) return;
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+
+          // Low-frequency rumble oscillator
+          this.engineSub = this.ctx.createOscillator();
+          this.engineSub.type = 'sawtooth';
+          this.engineSub.frequency.setValueAtTime(32, this.ctx.currentTime);
+
+          // Second harmonic
+          this.engineOsc = this.ctx.createOscillator();
+          this.engineOsc.type = 'triangle';
+          this.engineOsc.frequency.setValueAtTime(64, this.ctx.currentTime);
+
+          this.filter = this.ctx.createBiquadFilter();
+          this.filter.type = 'lowpass';
+          this.filter.frequency.setValueAtTime(180, this.ctx.currentTime);
+
+          this.engineGain = this.ctx.createGain();
+          this.engineGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+
+          this.engineSub.connect(this.filter);
+          this.engineOsc.connect(this.filter);
+          this.filter.connect(this.engineGain);
+          this.engineGain.connect(this.ctx.destination);
+
+          this.engineSub.start();
+          this.engineOsc.start();
+          this.initialized = true;
+        } catch (e) {
+          console.warn('AudioContext not available:', e);
+        }
+      }
+      updateEngine(rpmRatio, inCar) {
+        if (!this.initialized || !this.ctx) return;
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+        if (!inCar) {
+          this.engineGain.gain.setTargetAtTime(0.0, this.ctx.currentTime, 0.1);
+          return;
+        }
+        const baseFreq = 30 + rpmRatio * 90;
+        this.engineSub.frequency.setTargetAtTime(baseFreq, this.ctx.currentTime, 0.05);
+        this.engineOsc.frequency.setTargetAtTime(baseFreq * 2.05, this.ctx.currentTime, 0.05);
+        this.filter.frequency.setTargetAtTime(160 + rpmRatio * 650, this.ctx.currentTime, 0.05);
+        const targetGain = 0.12 + rpmRatio * 0.15;
+        this.engineGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.05);
+      }
+      playDoorSound() {
+        if (!this.initialized || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(45, this.ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.16);
+      }
+      playBrakeScreech() {
+        if (!this.initialized || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(800, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.22);
+      }
+    }
+    const soundEngine = new SoundEngine();
+
+    // 2. Procedural Texture Generators
+    const Textures = {
+      createAsphaltTexture() {
+        const c = document.createElement('canvas');
+        c.width = 512;
+        c.height = 512;
+        const ctx = c.getContext('2d');
+        // Asphalt dark gray
+        ctx.fillStyle = '#2d3138';
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Asphalt subtle aggregate noise
+        for (let i = 0; i < 12000; i++) {
+          const shade = Math.floor(35 + Math.random() * 30);
+          ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+          ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+        }
+
+        // Outer solid white lines
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(24, 0); ctx.lineTo(24, 512);
+        ctx.moveTo(488, 0); ctx.lineTo(488, 512);
+        ctx.stroke();
+
+        // Double solid yellow center line
+        ctx.strokeStyle = '#eab308';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(250, 0); ctx.lineTo(250, 512);
+        ctx.moveTo(262, 0); ctx.lineTo(262, 512);
+        ctx.stroke();
+
+        // Dashed white lane dividers
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 6;
+        ctx.setLineDash([40, 36]);
+        ctx.beginPath();
+        ctx.moveTo(137, 0); ctx.lineTo(137, 512);
+        ctx.moveTo(375, 0); ctx.lineTo(375, 512);
+        ctx.stroke();
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+      },
+
+      createCrosswalkTexture() {
+        const c = document.createElement('canvas');
+        c.width = 256;
+        c.height = 256;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#2d3138';
+        ctx.fillRect(0, 0, 256, 256);
+
+        // White zebra stripes
+        ctx.fillStyle = '#ffffff';
+        for (let y = 16; y < 256; y += 48) {
+          ctx.fillRect(20, y, 216, 24);
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+      },
+
+      createSidewalkTexture() {
+        const c = document.createElement('canvas');
+        c.width = 256;
+        c.height = 256;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#d6dade';
+        ctx.fillRect(0, 0, 256, 256);
+
+        // Concrete slabs seams
+        ctx.strokeStyle = '#b0b6bc';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(4, 4, 120, 120);
+        ctx.strokeRect(128, 4, 120, 120);
+        ctx.strokeRect(4, 128, 120, 120);
+        ctx.strokeRect(128, 128, 120, 120);
+
+        // Subtle paving noise
+        for (let i = 0; i < 2000; i++) {
+          ctx.fillStyle = Math.random() > 0.5 ? '#ffffff' : '#9ca3af';
+          ctx.globalAlpha = 0.08;
+          ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+        }
+        ctx.globalAlpha = 1.0;
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(4, 4);
+        return tex;
+      },
+
+      createRunwayTexture() {
+        const c = document.createElement('canvas');
+        c.width = 512;
+        c.height = 1024;
+        const ctx = c.getContext('2d');
+
+        // Asphalt runway surface
+        ctx.fillStyle = '#22252a';
+        ctx.fillRect(0, 0, 512, 1024);
+
+        // Runway edge stripes
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(16, 0, 12, 1024);
+        ctx.fillRect(484, 0, 12, 1024);
+
+        // Centerline dashed stripes
+        ctx.fillStyle = '#f8fafc';
+        for (let y = 60; y < 1024; y += 120) {
+          ctx.fillRect(248, y, 16, 60);
+        }
+
+        // Threshold piano key stripes (ends)
+        for (let i = 40; i < 470; i += 32) {
+          ctx.fillRect(i, 20, 16, 110);
+          ctx.fillRect(i, 894, 16, 110);
+        }
+
+        // Runway numbers
+        ctx.font = 'bold 64px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('09L', 256, 200);
+        ctx.fillText('27R', 256, 850);
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+      },
+
+      createBuildingTexture(type, baseColorHex, winColorHex) {
+        const c = document.createElement('canvas');
+        c.width = 512;
+        c.height = 1024;
+        const ctx = c.getContext('2d');
+
+        ctx.fillStyle = baseColorHex;
+        ctx.fillRect(0, 0, 512, 1024);
+
+        if (type === 'glass') {
+          // Vertical architectural glass panels with reflective mullions
+          const cols = 16;
+          const colW = 512 / cols;
+          for (let x = 0; x < 512; x += colW) {
+            ctx.fillStyle = winColorHex;
+            ctx.fillRect(x + 2, 0, colW - 4, 1024);
+            // Glass sky reflection gradient
+            const grad = ctx.createLinearGradient(x, 0, x, 1024);
+            grad.addColorStop(0, 'rgba(215, 238, 255, 0.45)');
+            grad.addColorStop(0.3, 'rgba(100, 160, 210, 0.15)');
+            grad.addColorStop(0.7, 'rgba(40, 80, 120, 0.25)');
+            grad.addColorStop(1, 'rgba(200, 230, 255, 0.35)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(x + 2, 0, colW - 4, 1024);
+          }
+          // Horizontal floor dividers
+          ctx.fillStyle = '#334155';
+          for (let y = 0; y < 1024; y += 32) {
+            ctx.fillRect(0, y, 512, 4);
+          }
+        } else {
+          // Architectural masonry apartment / office building with individual windows
+          const rows = 28;
+          const cols = 12;
+          const winW = 24;
+          const winH = 22;
+          const gapX = (512 - cols * winW) / (cols + 1);
+          const gapY = (1024 - rows * winH) / (rows + 1);
+
+          for (let r = 0; r < rows; r++) {
+            const y = gapY + r * (winH + gapY);
+            for (let col = 0; col < cols; col++) {
+              const x = gapX + col * (winW + gapX);
+              // Window frame
+              ctx.fillStyle = '#1e293b';
+              ctx.fillRect(x - 2, y - 2, winW + 4, winH + 4);
+
+              // Window pane (daytime sky reflection + occasional lit office)
+              const isLit = Math.random() < 0.18;
+              if (isLit) {
+                ctx.fillStyle = '#fef08a';
+              } else {
+                ctx.fillStyle = winColorHex;
+              }
+              ctx.fillRect(x, y, winW, winH);
+
+              // Window mullion
+              ctx.fillStyle = '#0f172a';
+              ctx.fillRect(x + winW / 2 - 1, y, 2, winH);
+            }
+          }
+        }
+
+        // Ground floor commercial storefronts & entrance doors
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 930, 512, 94);
+
+        // Storefront display glass
+        ctx.fillStyle = '#bae6fd';
+        ctx.fillRect(20, 950, 140, 64);
+        ctx.fillRect(352, 950, 140, 64);
+
+        // Entrance double glass doors
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillRect(206, 952, 46, 70);
+        ctx.fillRect(260, 952, 46, 70);
+        ctx.fillStyle = '#0284c7';
+        ctx.fillRect(212, 958, 34, 58);
+        ctx.fillRect(266, 958, 34, 58);
+
+        // Store signboard
+        ctx.fillStyle = '#0284c7';
+        ctx.fillRect(16, 932, 480, 14);
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+      },
+
+      createDashboardTexture() {
+        const c = document.createElement('canvas');
+        c.width = 512;
+        c.height = 256;
+        const ctx = c.getContext('2d');
+
+        // Dark luxury dashboard cluster panel
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(0, 0, 512, 256);
+
+        // Gauges background
+        ctx.lineWidth = 6;
+        // Speedometer left
+        ctx.beginPath();
+        ctx.arc(140, 128, 80, 0.75 * Math.PI, 2.25 * Math.PI);
+        ctx.strokeStyle = '#374151';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(140, 128, 80, 0.75 * Math.PI, 1.8 * Math.PI);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.stroke();
+
+        // Tachometer right
+        ctx.beginPath();
+        ctx.arc(372, 128, 80, 0.75 * Math.PI, 2.25 * Math.PI);
+        ctx.strokeStyle = '#374151';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(372, 128, 80, 0.75 * Math.PI, 1.6 * Math.PI);
+        ctx.strokeStyle = '#ef4444';
+        ctx.stroke();
+
+        // Center digital screen
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(216, 80, 80, 96);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(216, 80, 80, 96);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = 'bold 20px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('CITY', 256, 115);
+        ctx.fillStyle = '#10b981';
+        ctx.font = '14px monospace';
+        ctx.fillText('DRIVE', 256, 145);
+
+        return new THREE.CanvasTexture(c);
+      }
+    };
+
+    // 3. Main Game Engine & World
+    class CityDriveApp {
+      constructor() {
+        this.canvas = document.getElementById('game-canvas');
+        this.minimapCanvas = document.getElementById('minimap-canvas');
+        this.minimapCtx = this.minimapCanvas.getContext('2d');
+
+        // State
+        this.clock = new THREE.Clock();
+        this.playerInCar = false;
+        this.cameraMode = 'chase'; // 'chase' or 'first_person'
+        this.simTime = 14 * 60 + 35; // 14:35
+
+        // Driving physics state
+        this.carSpeed = 0; // m/s
+        this.carSteerAngle = 0;
+        this.maxForwardSpeed = 38.0; // ~137 km/h
+        this.maxReverseSpeed = -9.0; // ~32 km/h
+        this.accel = 16.0;
+        this.braking = 24.0;
+        this.drag = 0.985;
+        this.carHeading = 0; // radians
+
+        // Pedestrian player state (when on foot)
+        this.playerPos = new THREE.Vector3(0, 0.9, 0);
+        this.playerHeading = 0;
+        this.playerWalkSpeed = 4.5; // m/s
+
+        // Input state
+        this.keys = {
+          forward: false,
+          backward: false,
+          left: false,
+          right: false
+        };
+
+        // Collections
+        this.buildings = [];
+        this.trafficCars = [];
+        this.pedestrians = [];
+        this.clouds = [];
+
+        this.initThree();
+        this.buildWorld();
+        this.buildPlayerCar();
+        this.buildPedestrianPlayer();
+        this.buildTraffic();
+        this.buildPedestrians();
+        this.setupEventListeners();
+
+        // Start animation loop
+        this.animate = this.animate.bind(this);
+        requestAnimationFrame(this.animate);
+      }
+
+      initThree() {
+        // Scene
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x7ab2e8); // Bright azure daytime sky
+        this.scene.fog = new THREE.Fog(0xb8d9f8, 120, 520); // Soft horizon atmosphere
+
+        // Camera
+        this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.2, 800);
+        this.camera.position.set(0, 4, 12);
+
+        // Renderer
+        this.renderer = new THREE.WebGLRenderer({
+          canvas: this.canvas,
+          antialias: true,
+          powerPreference: 'high-performance'
+        });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.15;
+
+        // Lighting Rig
+        // Ambient / Hemisphere Sky fill
+        const hemiLight = new THREE.HemisphereLight(0xd9efff, 0x5a6352, 0.75);
+        this.scene.add(hemiLight);
+
+        // Primary Sun Key Light
+        this.sunLight = new THREE.DirectionalLight(0xfffaec, 1.25);
+        this.sunLight.position.set(160, 260, 180);
+        this.sunLight.castShadow = true;
+        this.sunLight.shadow.mapSize.width = 1024;
+        this.sunLight.shadow.mapSize.height = 1024;
+        this.sunLight.shadow.camera.near = 40;
+        this.sunLight.shadow.camera.far = 600;
+        const d = 160;
+        this.sunLight.shadow.camera.left = -d;
+        this.sunLight.shadow.camera.right = d;
+        this.sunLight.shadow.camera.top = d;
+        this.sunLight.shadow.camera.bottom = -d;
+        this.sunLight.shadow.bias = -0.0006;
+        this.scene.add(this.sunLight);
+
+        // Subtle soft rim light
+        const rimLight = new THREE.DirectionalLight(0x90c2f8, 0.4);
+        rimLight.position.set(-140, 100, -140);
+        this.scene.add(rimLight);
+
+        // Create volumetric soft sky clouds
+        this.createSkyClouds();
+      }
+
+      createSkyClouds() {
+        const cloudGeo = new THREE.DodecahedronGeometry(18, 1);
+        const cloudMat = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.65
+        });
+
+        for (let i = 0; i < 28; i++) {
+          const cloudGroup = new THREE.Group();
+          const puffs = 3 + Math.floor(Math.random() * 4);
+          for (let p = 0; p < puffs; p++) {
+            const puff = new THREE.Mesh(cloudGeo, cloudMat);
+            puff.position.set(
+              (p - puffs / 2) * 16 + (Math.random() - 0.5) * 8,
+              (Math.random() - 0.5) * 6,
+              (Math.random() - 0.5) * 12
+            );
+            const s = 0.8 + Math.random() * 0.7;
+            puff.scale.set(s, s * 0.6, s);
+            cloudGroup.add(puff);
+          }
+          cloudGroup.position.set(
+            (Math.random() - 0.5) * 1200,
+            160 + Math.random() * 60,
+            (Math.random() - 0.5) * 1200
+          );
+          this.scene.add(cloudGroup);
+          this.clouds.push(cloudGroup);
+        }
+      }
+
+      buildWorld() {
+        // 1. Vast Terrain Base
+        const groundGeo = new THREE.PlaneGeometry(1600, 1600);
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0x487538 }); // Natural park grass border
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        this.scene.add(ground);
+
+        // 2. City Ground & Road Network Layout
+        // City span: X from -250 to 250, Z from -280 to 260.
+        // Airport span: X from 280 to 620, Z from 80 to 520.
+        this.roadAsphaltTex = Textures.createAsphaltTexture();
+        this.roadAsphaltTex.repeat.set(1, 40);
+
+        this.crosswalkTex = Textures.createCrosswalkTexture();
+        this.sidewalkTex = Textures.createSidewalkTexture();
+        this.runwayTex = Textures.createRunwayTexture();
+        this.runwayTex.repeat.set(1, 4);
+
+        this.roadMaterial = new THREE.MeshLambertMaterial({
+          map: this.roadAsphaltTex
+        });
+
+        // Main North-South Grand Avenue (Width 28m)
+        this.createRoadSegment(0, 0, 28, 560, 0);
+
+        // Secondary North-South Avenues
+        const nsRoadsX = [-180, -100, 100, 180];
+        nsRoadsX.forEach(x => {
+          this.createRoadSegment(x, 0, 18, 560, 0);
+        });
+
+        // East-West Avenues (Width 18m)
+        const ewRoadsZ = [-220, -140, -60, 20, 100, 180];
+        ewRoadsZ.forEach(z => {
+          this.createRoadSegment(0, z, 440, 18, 0);
+        });
+
+        // Road connecting City to Airport (Runs East from X = 180 to X = 480 at Z = 180)
+        this.createRoadSegment(330, 180, 300, 22, 0);
+
+        // Airport Access Boulevard (Turns into terminal front at X = 440, Z = 240 to 420)
+        this.createRoadSegment(440, 300, 20, 240, 0);
+
+        // 3. Sidewalks along roads
+        this.buildSidewalks();
+
+        // 4. Street Lamps & Trees along Avenues
+        this.buildStreetFurniture();
+
+        // 5. City Buildings (Approx 80 buildings across city blocks)
+        this.buildCityBlocks();
+
+        // 6. Green Parks with Winding Stone Paths & Trees
+        this.buildParks();
+
+        // 7. Complete Airport Complex at City Edge
+        this.buildAirport();
+      }
+
+      createRoadSegment(x, z, width, length, rotation = 0) {
+        const roadGeo = new THREE.PlaneGeometry(width, length);
+        const road = new THREE.Mesh(roadGeo, this.roadMaterial);
+        road.rotation.x = -Math.PI / 2;
+        road.rotation.z = rotation;
+        road.position.set(x, 0.04, z);
+        road.receiveShadow = true;
+        this.scene.add(road);
+
+        // Add crosswalks at intersections if avenue
+        if (width > 20 && length > 100) {
+          const crosswalkMat = new THREE.MeshLambertMaterial({ map: this.crosswalkTex });
+          const cwGeo = new THREE.PlaneGeometry(width, 6);
+          const zSteps = [-220, -140, -60, 20, 100, 180];
+          zSteps.forEach(cz => {
+            const cw1 = new THREE.Mesh(cwGeo, crosswalkMat);
+            cw1.rotation.x = -Math.PI / 2;
+            cw1.position.set(x, 0.05, cz - 12);
+            cw1.receiveShadow = true;
+            this.scene.add(cw1);
+
+            const cw2 = new THREE.Mesh(cwGeo, crosswalkMat);
+            cw2.rotation.x = -Math.PI / 2;
+            cw2.position.set(x, 0.05, cz + 12);
+            cw2.receiveShadow = true;
+            this.scene.add(cw2);
+          });
+        }
+      }
+
+      buildSidewalks() {
+        const swMat = new THREE.MeshLambertMaterial({
+          map: this.sidewalkTex,
+          color: 0xced4da
+        });
+
+        // Curbs along main avenue
+        const curbMat = new THREE.MeshLambertMaterial({ color: 0x94a3b8 });
+        const avenueSidewalkGeo = new THREE.BoxGeometry(4.5, 0.25, 560);
+
+        const swLeft = new THREE.Mesh(avenueSidewalkGeo, swMat);
+        swLeft.position.set(-16.25, 0.12, 0);
+        swLeft.receiveShadow = true;
+        this.scene.add(swLeft);
+
+        const swRight = new THREE.Mesh(avenueSidewalkGeo, swMat);
+        swRight.position.set(16.25, 0.12, 0);
+        swRight.receiveShadow = true;
+        this.scene.add(swRight);
+      }
+
+      buildStreetFurniture() {
+        const poleMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
+        const lampMat = new THREE.MeshBasicMaterial({ color: 0xfffae0 });
+
+        // Street light poles along main avenue
+        for (let z = -250; z <= 250; z += 40) {
+          [-17, 17].forEach(x => {
+            const poleGroup = new THREE.Group();
+            // Vertical pole
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 7.5, 8), poleMat);
+            pole.position.y = 3.75;
+            poleGroup.add(pole);
+
+            // Curved arm
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.8, 8), poleMat);
+            arm.rotation.z = x > 0 ? -Math.PI / 4 : Math.PI / 4;
+            arm.position.set(x > 0 ? -0.9 : 0.9, 7.2, 0);
+            poleGroup.add(arm);
+
+            // Light fixture head
+            const lightHead = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 1.2), lampMat);
+            lightHead.position.set(x > 0 ? -1.8 : 1.8, 7.5, 0);
+            poleGroup.add(lightHead);
+
+            poleGroup.position.set(x, 0, z);
+            this.scene.add(poleGroup);
+          });
+        }
+      }
+
+      buildCityBlocks() {
+        // Diverse building styles textures
+        const glassTexBlue = Textures.createBuildingTexture('glass', '#1e293b', '#38bdf8');
+        const glassTexTeal = Textures.createBuildingTexture('glass', '#0f172a', '#2dd4bf');
+        const glassTexSilver = Textures.createBuildingTexture('glass', '#334155', '#e2e8f0');
+        const aptTexWhite = Textures.createBuildingTexture('apt', '#f1f5f9', '#60a5fa');
+        const aptTexGray = Textures.createBuildingTexture('apt', '#cbd5e1', '#93c5fd');
+        const aptTexWarm = Textures.createBuildingTexture('apt', '#e2e8f0', '#fbbf24');
+
+        const bldMaterials = [
+          new THREE.MeshStandardMaterial({ map: glassTexBlue, roughness: 0.25, metalness: 0.3 }),
+          new THREE.MeshStandardMaterial({ map: glassTexTeal, roughness: 0.25, metalness: 0.35 }),
+          new THREE.MeshStandardMaterial({ map: glassTexSilver, roughness: 0.3, metalness: 0.4 }),
+          new THREE.MeshStandardMaterial({ map: aptTexWhite, roughness: 0.7, metalness: 0.1 }),
+          new THREE.MeshStandardMaterial({ map: aptTexGray, roughness: 0.75, metalness: 0.1 }),
+          new THREE.MeshStandardMaterial({ map: aptTexWarm, roughness: 0.7, metalness: 0.1 })
+        ];
+
+        // Roof details materials
+        const roofMat = new THREE.MeshLambertMaterial({ color: 0x475569 });
+        const antennaMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
+
+        // City block grid bounds:
+        // Blocks between X [-180, -100], [-100, -20], [20, 100], [100, 180]
+        // and Z [-220, -140], [-140, -60], [-60, 20], [20, 100], [100, 180]
+        const blockRangesX = [
+          [-165, -115],
+          [-85, -35],
+          [35, 85],
+          [115, 165]
+        ];
+        const blockRangesZ = [
+          [-205, -155],
+          [-125, -75],
+          [-45, 5],
+          [35, 85],
+          [115, 165]
+        ];
+
+        let bldCount = 0;
+
+        blockRangesX.forEach((bx, bi) => {
+          blockRangesZ.forEach((bz, bzi) => {
+            // Reserve 2 specific blocks for green city parks
+            if ((bi === 1 && bzi === 1) || (bi === 2 && bzi === 3)) {
+              return; // park
+            }
+
+            // Create 3 to 4 distinct buildings within each block
+            const subPositions = [
+              { x: bx[0] + 12, z: bz[0] + 12, w: 22, d: 22 },
+              { x: bx[1] - 12, z: bz[0] + 12, w: 20, d: 20 },
+              { x: bx[0] + 12, z: bz[1] - 12, w: 20, d: 22 },
+              { x: bx[1] - 12, z: bz[1] - 12, w: 22, d: 20 }
+            ];
+
+            subPositions.forEach(sp => {
+              bldCount++;
+              // Random height: glass towers in center are taller (60m - 120m), apartments (24m - 50m)
+              const isSkyscraper = (bi === 1 || bi === 2) && (bzi === 2 || bzi === 3);
+              const height = isSkyscraper
+                ? 65 + Math.random() * 60
+                : 24 + Math.random() * 38;
+
+              const matIndex = Math.floor(Math.random() * bldMaterials.length);
+              const bMat = bldMaterials[matIndex];
+
+              const bGroup = new THREE.Group();
+              const bGeo = new THREE.BoxGeometry(sp.w, height, sp.d);
+              const bMesh = new THREE.Mesh(bGeo, bMat);
+              bMesh.position.y = height / 2;
+              bMesh.castShadow = true;
+              bMesh.receiveShadow = true;
+              bGroup.add(bMesh);
+
+              // Roof structure (HVAC / Elevator plant / Helipad / Spire)
+              const roofDeck = new THREE.Mesh(
+                new THREE.BoxGeometry(sp.w * 0.55, 3.5, sp.d * 0.55),
+                roofMat
+              );
+              roofDeck.position.y = height + 1.75;
+              bGroup.add(roofDeck);
+
+              if (isSkyscraper && Math.random() > 0.4) {
+                // Tall communication antenna spire
+                const spire = new THREE.Mesh(
+                  new THREE.CylinderGeometry(0.2, 0.4, 16, 8),
+                  antennaMat
+                );
+                spire.position.y = height + 11.5;
+                bGroup.add(spire);
+              }
+
+              bGroup.position.set(sp.x, 0, sp.z);
+              this.scene.add(bGroup);
+
+              // Register building collision & minimap footprint
+              this.buildings.push({
+                x: sp.x,
+                z: sp.z,
+                w: sp.w,
+                d: sp.d,
+                height: height
+              });
+            });
+          });
+        });
+      }
+
+      buildParks() {
+        const parkLocations = [
+          { x: -60, z: -100, w: 50, d: 50 },
+          { x: 60, z: 60, w: 50, d: 50 }
+        ];
+
+        const grassMat = new THREE.MeshLambertMaterial({ color: 0x48bb78 });
+        const pathMat = new THREE.MeshLambertMaterial({ color: 0xe2e8f0 });
+        const benchMat = new THREE.MeshLambertMaterial({ color: 0x854d0e });
+
+        parkLocations.forEach(park => {
+          // Lush park lawn
+          const lawn = new THREE.Mesh(
+            new THREE.PlaneGeometry(park.w, park.d),
+            grassMat
+          );
+          lawn.rotation.x = -Math.PI / 2;
+          lawn.position.set(park.x, 0.08, park.z);
+          lawn.receiveShadow = true;
+          this.scene.add(lawn);
+
+          // Curved decorative stone walking paths
+          for (let angle = 0; angle <= Math.PI * 1.5; angle += 0.3) {
+            const px = park.x + Math.cos(angle) * 16;
+            const pz = park.z + Math.sin(angle) * 16;
+            const pathTile = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.04, 3.5), pathMat);
+            pathTile.position.set(px, 0.1, pz);
+            pathTile.rotation.y = angle;
+            pathTile.receiveShadow = true;
+            this.scene.add(pathTile);
+          }
+
+          // Trees in park
+          for (let i = 0; i < 9; i++) {
+            const tx = park.x + (Math.random() - 0.5) * (park.w - 12);
+            const tz = park.z + (Math.random() - 0.5) * (park.d - 12);
+            this.createTree(tx, tz);
+          }
+
+          // Park benches
+          [-10, 10].forEach(bx => {
+            const bench = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.5, 0.8), benchMat);
+            bench.position.set(park.x + bx, 0.35, park.z + 14);
+            bench.castShadow = true;
+            this.scene.add(bench);
+          });
+        });
+      }
+
+      createTree(x, z, scale = 1.0) {
+        const treeGroup = new THREE.Group();
+        // Wood trunk
+        const trunkGeo = new THREE.CylinderGeometry(0.3 * scale, 0.45 * scale, 3 * scale, 8);
+        const trunkMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+        trunk.position.y = 1.5 * scale;
+        trunk.castShadow = true;
+        treeGroup.add(trunk);
+
+        // Lush round foliage
+        const leafMat = new THREE.MeshLambertMaterial({
+          color: Math.random() > 0.5 ? 0x22c55e : 0x16a34a
+        });
+        const crown1 = new THREE.Mesh(new THREE.SphereGeometry(2.2 * scale, 8, 8), leafMat);
+        crown1.position.y = 3.6 * scale;
+        crown1.castShadow = true;
+        treeGroup.add(crown1);
+
+        const crown2 = new THREE.Mesh(new THREE.SphereGeometry(1.6 * scale, 8, 8), leafMat);
+        crown2.position.set(0.4 * scale, 4.6 * scale, 0.3 * scale);
+        crown2.castShadow = true;
+        treeGroup.add(crown2);
+
+        treeGroup.position.set(x, 0, z);
+        this.scene.add(treeGroup);
+      }
+
+      buildAirport() {
+        // Airport Coordinates: Center X = 480, Z = 320
+        const airportGroup = new THREE.Group();
+
+        // 1. Vast Airport Asphalt Tarmac Ground
+        const tarmacMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
+        const tarmac = new THREE.Mesh(new THREE.PlaneGeometry(360, 480), tarmacMat);
+        tarmac.rotation.x = -Math.PI / 2;
+        tarmac.position.set(480, 0.05, 320);
+        tarmac.receiveShadow = true;
+        this.scene.add(tarmac);
+
+        // 2. Long Runway Strip (Runs parallel to city, length 420m, width 36m)
+        const runwayGeo = new THREE.PlaneGeometry(36, 420);
+        const runwayMat = new THREE.MeshLambertMaterial({ map: this.runwayTex });
+        const runway = new THREE.Mesh(runwayGeo, runwayMat);
+        runway.rotation.x = -Math.PI / 2;
+        runway.position.set(580, 0.07, 320);
+        runway.receiveShadow = true;
+        this.scene.add(runway);
+
+        // Taxiway connector
+        const taxiway = new THREE.Mesh(new THREE.PlaneGeometry(80, 22), runwayMat);
+        taxiway.rotation.x = -Math.PI / 2;
+        taxiway.position.set(520, 0.06, 320);
+        taxiway.receiveShadow = true;
+        this.scene.add(taxiway);
+
+        // 3. Modern Passenger Terminal Building with Curved / Slanted Glass Facade
+        const terminalGeo = new THREE.BoxGeometry(110, 22, 54);
+        const termGlassMat = new THREE.MeshStandardMaterial({
+          color: 0x38bdf8,
+          roughness: 0.15,
+          metalness: 0.6,
+          transparent: true,
+          opacity: 0.85
+        });
+        const termBodyMat = new THREE.MeshStandardMaterial({
+          color: 0xf8fafc,
+          roughness: 0.4
+        });
+
+        const terminal = new THREE.Mesh(terminalGeo, termBodyMat);
+        terminal.position.set(390, 11, 320);
+        terminal.castShadow = true;
+        terminal.receiveShadow = true;
+        this.scene.add(terminal);
+
+        // Glass Front Curtain
+        const glassFront = new THREE.Mesh(new THREE.PlaneGeometry(108, 18), termGlassMat);
+        glassFront.position.set(390, 10, 292.8);
+        this.scene.add(glassFront);
+
+        // Terminal Roof Canopy
+        const canopy = new THREE.Mesh(
+          new THREE.BoxGeometry(120, 2.5, 64),
+          new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 })
+        );
+        canopy.position.set(390, 23, 320);
+        this.scene.add(canopy);
+
+        // Airport Sign Canvas
+        const signCanvas = document.createElement('canvas');
+        signCanvas.width = 1024;
+        signCanvas.height = 128;
+        const sctx = signCanvas.getContext('2d');
+        sctx.fillStyle = '#0284c7';
+        sctx.fillRect(0, 0, 1024, 128);
+        sctx.fillStyle = '#ffffff';
+        sctx.font = 'bold 54px sans-serif';
+        sctx.textAlign = 'center';
+        sctx.fillText('CITADEL INTERNATIONAL AIRPORT', 512, 82);
+        const signTex = new THREE.CanvasTexture(signCanvas);
+        const signMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(70, 8.5),
+          new THREE.MeshBasicMaterial({ map: signTex })
+        );
+        signMesh.position.set(390, 26, 292.5);
+        this.scene.add(signMesh);
+
+        // 4. Air Traffic Control Tower
+        const towerGroup = new THREE.Group();
+        // Base stem
+        const towerStem = new THREE.Mesh(
+          new THREE.CylinderGeometry(4.5, 6.0, 52, 16),
+          new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.4 })
+        );
+        towerStem.position.y = 26;
+        towerStem.castShadow = true;
+        towerGroup.add(towerStem);
+
+        // Observation Cab (Glass Deck)
+        const cab = new THREE.Mesh(
+          new THREE.CylinderGeometry(9, 7, 9, 16),
+          termGlassMat
+        );
+        cab.position.y = 54;
+        cab.castShadow = true;
+        towerGroup.add(cab);
+
+        // Roof Radar dome
+        const dome = new THREE.Mesh(
+          new THREE.SphereGeometry(3.5, 12, 12),
+          new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2 })
+        );
+        dome.position.y = 61;
+        towerGroup.add(dome);
+
+        towerGroup.position.set(455, 0, 210);
+        this.scene.add(towerGroup);
+
+        // 5. Parked Commercial Airliners (Twin-Engine Jetliners)
+        this.createAirplane(490, 0, 260, Math.PI / 2);
+        this.createAirplane(490, 0, 380, Math.PI / 2);
+
+        // Airport perimeter fence posts
+        const fenceMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
+        for (let fz = 100; fz <= 540; fz += 25) {
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3.5, 6), fenceMat);
+          post.position.set(310, 1.75, fz);
+          this.scene.add(post);
+        }
+      }
+
+      createAirplane(x, y, z, rotation) {
+        const planeGroup = new THREE.Group();
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+        const wingMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 });
+        const engineMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 });
+        const windowMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+
+        // Fuselage
+        const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.2, 36, 16), bodyMat);
+        fuselage.rotation.x = Math.PI / 2;
+        fuselage.position.y = 4.2;
+        fuselage.castShadow = true;
+        planeGroup.add(fuselage);
+
+        // Nose cone
+        const nose = new THREE.Mesh(new THREE.SphereGeometry(2.4, 16, 16), bodyMat);
+        nose.position.set(0, 4.2, 18);
+        nose.scale.set(1, 1, 1.6);
+        planeGroup.add(nose);
+
+        // Cockpit glass
+        const cockpit = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 2.8), windowMat);
+        cockpit.position.set(0, 5.2, 17);
+        cockpit.rotation.x = 0.3;
+        planeGroup.add(cockpit);
+
+        // Swept Wings
+        const leftWing = new THREE.Mesh(new THREE.BoxGeometry(22, 0.5, 5.5), wingMat);
+        leftWing.position.set(-11, 4.0, 2);
+        leftWing.rotation.y = -0.3;
+        leftWing.castShadow = true;
+        planeGroup.add(leftWing);
+
+        const rightWing = new THREE.Mesh(new THREE.BoxGeometry(22, 0.5, 5.5), wingMat);
+        rightWing.position.set(11, 4.0, 2);
+        rightWing.rotation.y = 0.3;
+        rightWing.castShadow = true;
+        planeGroup.add(rightWing);
+
+        // Jet Engines
+        [-6.5, 6.5].forEach(ex => {
+          const engine = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.1, 6.5, 12), engineMat);
+          engine.rotation.x = Math.PI / 2;
+          engine.position.set(ex, 2.6, 1.5);
+          engine.castShadow = true;
+          planeGroup.add(engine);
+        });
+
+        // Tail fin & horizontal stabilizers
+        const tailFin = new THREE.Mesh(new THREE.BoxGeometry(0.5, 7.5, 5), engineMat);
+        tailFin.position.set(0, 8.5, -16);
+        tailFin.rotation.x = -0.4;
+        planeGroup.add(tailFin);
+
+        const tailWing = new THREE.Mesh(new THREE.BoxGeometry(11, 0.4, 3.5), wingMat);
+        tailWing.position.set(0, 5.2, -16);
+        planeGroup.add(tailWing);
+
+        // Landing gear struts
+        const gearMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
+        const gear1 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 3.2), gearMat);
+        gear1.position.set(0, 1.6, 14);
+        planeGroup.add(gear1);
+
+        [-4, 4].forEach(gx => {
+          const gearMain = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 3.2), gearMat);
+          gearMain.position.set(gx, 1.6, 0);
+          planeGroup.add(gearMain);
+        });
+
+        planeGroup.position.set(x, y, z);
+        planeGroup.rotation.y = rotation;
+        this.scene.add(planeGroup);
+      }
+
+      buildPlayerCar() {
+        // Player Car: Sleek Sports Sedan in deep metallic royal blue
+        this.carGroup = new THREE.Group();
+
+        const bodyColor = 0x1d4ed8; // Royal blue
+        const bodyMat = new THREE.MeshStandardMaterial({
+          color: bodyColor,
+          roughness: 0.18,
+          metalness: 0.75
+        });
+        const trimMat = new THREE.MeshStandardMaterial({
+          color: 0x0f172a,
+          roughness: 0.5,
+          metalness: 0.4
+        });
+        const glassMat = new THREE.MeshStandardMaterial({
+          color: 0x93c5fd,
+          roughness: 0.1,
+          metalness: 0.9,
+          transparent: true,
+          opacity: 0.75
+        });
+        const lightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        this.taillightMat = new THREE.MeshBasicMaterial({ color: 0xb91c1c });
+
+        // 1. Lower chassis / body
+        const chassisGeo = new THREE.BoxGeometry(2.0, 0.75, 4.4);
+        const chassis = new THREE.Mesh(chassisGeo, bodyMat);
+        chassis.position.y = 0.65;
+        chassis.castShadow = true;
+        this.carGroup.add(chassis);
+
+        // 2. Cabin roof & windows
+        const cabinGeo = new THREE.BoxGeometry(1.68, 0.65, 2.2);
+        const cabin = new THREE.Mesh(cabinGeo, bodyMat);
+        cabin.position.set(0, 1.25, -0.2);
+        cabin.castShadow = true;
+        this.carGroup.add(cabin);
+
+        // Windshield
+        const frontShield = new THREE.Mesh(new THREE.PlaneGeometry(1.58, 0.8), glassMat);
+        frontShield.position.set(0, 1.25, 0.95);
+        frontShield.rotation.x = -0.45;
+        this.carGroup.add(frontShield);
+
+        // Rear window
+        const rearShield = new THREE.Mesh(new THREE.PlaneGeometry(1.58, 0.75), glassMat);
+        rearShield.position.set(0, 1.25, -1.35);
+        rearShield.rotation.x = Math.PI + 0.45;
+        this.carGroup.add(rearShield);
+
+        // Side windows
+        const leftWindow = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.55), glassMat);
+        leftWindow.position.set(-0.85, 1.25, -0.2);
+        leftWindow.rotation.y = -Math.PI / 2;
+        this.carGroup.add(leftWindow);
+
+        const rightWindow = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.55), glassMat);
+        rightWindow.position.set(0.85, 1.25, -0.2);
+        rightWindow.rotation.y = Math.PI / 2;
+        this.carGroup.add(rightWindow);
+
+        // 3. Headlights & Taillights
+        [-0.7, 0.7].forEach(hx => {
+          const headlight = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.2, 0.1), lightMat);
+          headlight.position.set(hx, 0.7, 2.22);
+          this.carGroup.add(headlight);
+        });
+
+        [-0.7, 0.7].forEach(tx => {
+          const taillight = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.2, 0.1), this.taillightMat);
+          taillight.position.set(tx, 0.72, -2.22);
+          this.carGroup.add(taillight);
+        });
+
+        // 4. Detailed Alloy Wheels
+        this.carWheels = [];
+        const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.28, 16);
+        const tireMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9 });
+        const rimMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.2 });
+
+        const wheelPositions = [
+          { x: -0.98, y: 0.38, z: 1.35, isFront: true },  // Front Left
+          { x: 0.98, y: 0.38, z: 1.35, isFront: true },   // Front Right
+          { x: -0.98, y: 0.38, z: -1.35, isFront: false }, // Rear Left
+          { x: 0.98, y: 0.38, z: -1.35, isFront: false }  // Rear Right
+        ];
+
+        wheelPositions.forEach(wp => {
+          const wheelPivot = new THREE.Group();
+          wheelPivot.position.set(wp.x, wp.y, wp.z);
+
+          const wheelMesh = new THREE.Mesh(wheelGeo, tireMat);
+          wheelMesh.rotation.z = Math.PI / 2;
+          wheelMesh.castShadow = true;
+
+          // Rim hubcap
+          const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.3, 8), rimMat);
+          rim.rotation.z = Math.PI / 2;
+          wheelPivot.add(wheelMesh);
+          wheelPivot.add(rim);
+
+          this.carGroup.add(wheelPivot);
+          this.carWheels.push({
+            pivot: wheelPivot,
+            mesh: wheelMesh,
+            isFront: wp.isFront
+          });
+        });
+
+        // 5. Interior Cockpit (Dashboard & Steering Wheel for First-Person View)
+        this.cockpitGroup = new THREE.Group();
+        this.cockpitGroup.position.set(0, 0.95, 0.4);
+
+        // Dashboard console
+        const dashGeo = new THREE.BoxGeometry(1.5, 0.38, 0.6);
+        const dashMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
+        const dashboard = new THREE.Mesh(dashGeo, dashMat);
+        dashboard.position.set(0, 0, 0);
+        this.cockpitGroup.add(dashboard);
+
+        // Instrument cluster display
+        const clusterGeo = new THREE.PlaneGeometry(0.65, 0.25);
+        const clusterMat = new THREE.MeshBasicMaterial({ map: Textures.createDashboardTexture() });
+        const cluster = new THREE.Mesh(clusterGeo, clusterMat);
+        cluster.position.set(-0.35, 0.12, -0.28);
+        cluster.rotation.x = -0.3;
+        this.cockpitGroup.add(cluster);
+
+        // Steering wheel
+        this.steeringWheel = new THREE.Group();
+        const wheelRing = new THREE.Mesh(
+          new THREE.TorusGeometry(0.18, 0.025, 8, 16),
+          new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.4 })
+        );
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.04, 0.02), trimMat);
+        this.steeringWheel.add(wheelRing);
+        this.steeringWheel.add(spoke);
+        this.steeringWheel.position.set(-0.35, 0.12, -0.15);
+        this.steeringWheel.rotation.x = 0.35;
+        this.cockpitGroup.add(this.steeringWheel);
+
+        // Rearview mirror
+        const mirror = new THREE.Mesh(
+          new THREE.BoxGeometry(0.42, 0.14, 0.04),
+          new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.1 })
+        );
+        mirror.position.set(0, 0.58, -0.05);
+        this.cockpitGroup.add(mirror);
+
+        this.carGroup.add(this.cockpitGroup);
+
+        // Initial Parked Position: on city avenue parking lane
+        this.carGroup.position.set(8.5, 0, -40);
+        this.carGroup.rotation.y = 0; // facing North
+        this.scene.add(this.carGroup);
+      }
+
+      buildPedestrianPlayer() {
+        // Player character (when walking outside car)
+        this.playerGroup = new THREE.Group();
+
+        const skinMat = new THREE.MeshLambertMaterial({ color: 0xfbbf24 });
+        const shirtMat = new THREE.MeshLambertMaterial({ color: 0x0284c7 });
+        const pantsMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+        const hairMat = new THREE.MeshLambertMaterial({ color: 0x451a03 });
+
+        // Head
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), skinMat);
+        head.position.y = 1.62;
+        this.playerGroup.add(head);
+
+        // Hair
+        const hair = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), hairMat);
+        hair.position.set(0, 1.68, -0.04);
+        hair.scale.set(1, 0.7, 1);
+        this.playerGroup.add(hair);
+
+        // Torso
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.6, 0.26), shirtMat);
+        torso.position.y = 1.15;
+        torso.castShadow = true;
+        this.playerGroup.add(torso);
+
+        // Left & Right Legs for walk animation
+        this.playerLeftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.75, 0.2), pantsMat);
+        this.playerLeftLeg.position.set(-0.12, 0.45, 0);
+        this.playerLeftLeg.castShadow = true;
+        this.playerGroup.add(this.playerLeftLeg);
+
+        this.playerRightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.75, 0.2), pantsMat);
+        this.playerRightLeg.position.set(0.12, 0.45, 0);
+        this.playerRightLeg.castShadow = true;
+        this.playerGroup.add(this.playerRightLeg);
+
+        // Left & Right Arms
+        this.playerLeftArm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.14), shirtMat);
+        this.playerLeftArm.position.set(-0.28, 1.12, 0);
+        this.playerGroup.add(this.playerLeftArm);
+
+        this.playerRightArm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.14), shirtMat);
+        this.playerRightArm.position.set(0.28, 1.12, 0);
+        this.playerGroup.add(this.playerRightArm);
+
+        // Place player standing on sidewalk right next to the parked car!
+        this.playerPos.set(11.5, 0, -39);
+        this.playerGroup.position.copy(this.playerPos);
+        this.scene.add(this.playerGroup);
+      }
+
+      buildTraffic() {
+        // Diverse realistic traffic cars: white, black, silver, yellow taxi, royal blue
+        const colors = [0xffffff, 0x18181b, 0x94a3b8, 0xfacc15, 0x2563eb, 0xdc2626];
+        const trafficCount = 14;
+
+        for (let i = 0; i < trafficCount; i++) {
+          const col = colors[i % colors.length];
+          const carGroup = new THREE.Group();
+          const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.3, metalness: 0.5 });
+          const darkMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+
+          // Body
+          const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.7, 4.2), mat);
+          body.position.y = 0.6;
+          body.castShadow = true;
+          carGroup.add(body);
+
+          // Cabin
+          const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 2.0), mat);
+          cabin.position.set(0, 1.15, -0.2);
+          carGroup.add(cabin);
+
+          // Taxi sign if yellow
+          if (col === 0xfacc15) {
+            const taxiSign = new THREE.Mesh(
+              new THREE.BoxGeometry(0.7, 0.2, 0.3),
+              new THREE.MeshBasicMaterial({ color: 0xffffff })
+            );
+            taxiSign.position.set(0, 1.55, -0.2);
+            carGroup.add(taxiSign);
+          }
+
+          // Wheels
+          const wGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 8);
+          [-0.92, 0.92].forEach(wx => {
+            [-1.25, 1.25].forEach(wz => {
+              const w = new THREE.Mesh(wGeo, darkMat);
+              w.rotation.z = Math.PI / 2;
+              w.position.set(wx, 0.35, wz);
+              carGroup.add(w);
+            });
+          });
+
+          // Headlights & Taillights
+          [-0.6, 0.6].forEach(hx => {
+            const hl = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            hl.position.set(hx, 0.6, 2.12);
+            carGroup.add(hl);
+
+            const tl = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.1), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+            tl.position.set(hx, 0.6, -2.12);
+            carGroup.add(tl);
+          });
+
+          // Route assignment (Northbound or Southbound on Main Avenue, or Airport Expressway)
+          let startX, startZ, dir, speed;
+          if (i < 8) {
+            // Main Avenue
+            startX = (i % 2 === 0) ? -5.5 : 5.5; // Lane offset
+            dir = (i % 2 === 0) ? -1 : 1;
+            startZ = -240 + i * 65;
+            speed = 9 + Math.random() * 5;
+          } else {
+            // Airport Road
+            startX = 200 + (i - 8) * 60;
+            startZ = 180;
+            dir = 1;
+            speed = 12 + Math.random() * 4;
+          }
+
+          carGroup.position.set(startX, 0, startZ);
+          carGroup.rotation.y = dir === 1 ? 0 : Math.PI;
+          this.scene.add(carGroup);
+
+          this.trafficCars.push({
+            group: carGroup,
+            dir: dir,
+            speed: speed,
+            isAirportRoute: i >= 8
+          });
+        }
+      }
+
+      buildPedestrians() {
+        const pedColors = [0xef4444, 0x10b981, 0x8b5cf6, 0xf59e0b, 0x06b6d4, 0x64748b];
+        const pedCount = 36;
+
+        for (let i = 0; i < pedCount; i++) {
+          const isWorker = i < 6; // Safety vest workers standing near buildings/airport
+          const group = new THREE.Group();
+
+          const shirtColor = isWorker ? 0xf97316 : pedColors[i % pedColors.length];
+          const shirtMat = new THREE.MeshLambertMaterial({ color: shirtColor });
+          const pantsMat = new THREE.MeshLambertMaterial({ color: isWorker ? 0x0284c7 : 0x334155 });
+          const skinMat = new THREE.MeshLambertMaterial({ color: 0xfcd34d });
+
+          // Head & Hardhat
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), skinMat);
+          head.position.y = 1.55;
+          group.add(head);
+
+          if (isWorker) {
+            const helmet = new THREE.Mesh(
+              new THREE.SphereGeometry(0.23, 8, 8),
+              new THREE.MeshLambertMaterial({ color: 0xfacc15 })
+            );
+            helmet.position.set(0, 1.62, 0);
+            helmet.scale.set(1, 0.7, 1);
+            group.add(helmet);
+          }
+
+          // Torso
+          const torso = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.55, 0.24), shirtMat);
+          torso.position.y = 1.1;
+          group.add(torso);
+
+          // Legs
+          const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.7, 0.18), pantsMat);
+          leftLeg.position.set(-0.1, 0.4, 0);
+          group.add(leftLeg);
+
+          const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.7, 0.18), pantsMat);
+          rightLeg.position.set(0.1, 0.4, 0);
+          group.add(rightLeg);
+
+          // Spawn on sidewalks
+          let px, pz;
+          if (isWorker) {
+            // Standing near building entrance or terminal
+            px = i % 2 === 0 ? -18.5 : 18.5;
+            pz = -180 + i * 60;
+          } else {
+            // Walking along sidewalks
+            const side = i % 2 === 0 ? -16.5 : 16.5;
+            px = side + (Math.random() - 0.5) * 1.5;
+            pz = -260 + i * 14;
+          }
+
+          group.position.set(px, 0, pz);
+          this.scene.add(group);
+
+          this.pedestrians.push({
+            group: group,
+            leftLeg: leftLeg,
+            rightLeg: rightLeg,
+            isWorker: isWorker,
+            walkSpeed: 1.2 + Math.random() * 0.8,
+            dir: Math.random() > 0.5 ? 1 : -1,
+            animPhase: Math.random() * Math.PI * 2
+          });
+        }
+      }
+
+      setupEventListeners() {
+        // Keyboard
+        window.addEventListener('keydown', (e) => {
+          soundEngine.init();
+          const k = e.key.toLowerCase();
+
+          if (k === 'w' || e.key === 'ArrowUp') this.keys.forward = true;
+          if (k === 's' || e.key === 'ArrowDown') this.keys.backward = true;
+          if (k === 'a' || e.key === 'ArrowLeft') this.keys.left = true;
+          if (k === 'd' || e.key === 'ArrowRight') this.keys.right = true;
+
+          if (k === 'e') {
+            this.toggleCarEnterExit();
+          }
+          if (k === 'c') {
+            this.toggleCameraView();
+          }
+        });
+
+        window.addEventListener('keyup', (e) => {
+          const k = e.key.toLowerCase();
+          if (k === 'w' || e.key === 'ArrowUp') this.keys.forward = false;
+          if (k === 's' || e.key === 'ArrowDown') this.keys.backward = false;
+          if (k === 'a' || e.key === 'ArrowLeft') this.keys.left = false;
+          if (k === 'd' || e.key === 'ArrowRight') this.keys.right = false;
+        });
+
+        // Touch & Button Click Handlers
+        const bindButton = (id, onDown, onUp) => {
+          const btn = document.getElementById(id);
+          if (!btn) return;
+          const start = (ev) => {
+            ev.preventDefault();
+            soundEngine.init();
+            btn.classList.add('active');
+            onDown();
+          };
+          const end = (ev) => {
+            ev.preventDefault();
+            btn.classList.remove('active');
+            onUp();
+          };
+          btn.addEventListener('touchstart', start, { passive: false });
+          btn.addEventListener('touchend', end, { passive: false });
+          btn.addEventListener('mousedown', start);
+          btn.addEventListener('mouseup', end);
+          btn.addEventListener('mouseleave', end);
+        };
+
+        bindButton('btn-gas', () => { this.keys.forward = true; }, () => { this.keys.forward = false; });
+        bindButton('btn-brake', () => { this.keys.backward = true; }, () => { this.keys.backward = false; });
+        bindButton('btn-left', () => { this.keys.left = true; }, () => { this.keys.left = false; });
+        bindButton('btn-right', () => { this.keys.right = true; }, () => { this.keys.right = false; });
+
+        // Action Buttons
+        document.getElementById('btn-enter').addEventListener('click', (e) => {
+          e.preventDefault();
+          soundEngine.init();
+          this.toggleCarEnterExit();
+        });
+        document.getElementById('btn-enter').addEventListener('touchend', (e) => {
+          e.preventDefault();
+          soundEngine.init();
+          this.toggleCarEnterExit();
+        });
+
+        document.getElementById('btn-view').addEventListener('click', (e) => {
+          e.preventDefault();
+          soundEngine.init();
+          this.toggleCameraView();
+        });
+        document.getElementById('btn-view').addEventListener('touchend', (e) => {
+          e.preventDefault();
+          soundEngine.init();
+          this.toggleCameraView();
+        });
+
+        // Resize & Orientation
+        window.addEventListener('resize', () => {
+          this.camera.aspect = window.innerWidth / window.innerHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        });
+
+        // First click audio unlock
+        window.addEventListener('pointerdown', () => soundEngine.init(), { once: true });
+      }
+
+      toggleCarEnterExit() {
+        const distToCar = this.playerPos.distanceTo(this.carGroup.position);
+
+        if (!this.playerInCar) {
+          // Check proximity to car door (within 4.8m)
+          if (distToCar < 4.8) {
+            this.playerInCar = true;
+            this.playerGroup.visible = false;
+            soundEngine.playDoorSound();
+            document.getElementById('btn-enter-text').innerText = 'EXIT';
+            document.getElementById('enter-prompt').style.display = 'none';
+          }
+        } else {
+          // Exit car to the driver-side street
+          this.playerInCar = false;
+          this.playerGroup.visible = true;
+          soundEngine.playDoorSound();
+
+          // Spawn player slightly to left of car
+          const exitOffset = new THREE.Vector3(-1.8, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.carHeading);
+          this.playerPos.copy(this.carGroup.position).add(exitOffset);
+          this.playerPos.y = 0;
+          this.playerGroup.position.copy(this.playerPos);
+          this.playerHeading = this.carHeading;
+
+          document.getElementById('btn-enter-text').innerText = 'ENTER';
+        }
+      }
+
+      toggleCameraView() {
+        this.cameraMode = this.cameraMode === 'chase' ? 'first_person' : 'chase';
+        if (this.cameraMode === 'first_person') {
+          this.camera.fov = 68;
+        } else {
+          this.camera.fov = 60;
+        }
+        this.camera.updateProjectionMatrix();
+      }
+
+      updatePhysics(dt) {
+        if (this.playerInCar) {
+          // -------------------------------------------------------------
+          // CAR DRIVING PHYSICS
+          // -------------------------------------------------------------
+          // Acceleration & Braking
+          if (this.keys.forward) {
+            this.carSpeed += this.accel * dt;
+            if (this.carSpeed > this.maxForwardSpeed) this.carSpeed = this.maxForwardSpeed;
+          } else if (this.keys.backward) {
+            if (this.carSpeed > 0.5) {
+              // Active braking
+              this.carSpeed -= this.braking * dt;
+              soundEngine.playBrakeScreech();
+            } else {
+              // Reverse gear
+              this.carSpeed -= (this.accel * 0.55) * dt;
+              if (this.carSpeed < this.maxReverseSpeed) this.carSpeed = this.maxReverseSpeed;
+            }
+          } else {
+            // Natural rolling friction & wind drag
+            this.carSpeed *= Math.pow(this.drag, dt * 60);
+            if (Math.abs(this.carSpeed) < 0.05) this.carSpeed = 0;
+          }
+
+          // Taillights brake glow
+          if (this.keys.backward && this.carSpeed > 0.5) {
+            this.taillightMat.color.setHex(0xff1e1e);
+          } else {
+            this.taillightMat.color.setHex(0xb91c1c);
+          }
+
+          // Steering Mechanics (Smoother at high speed, turning only when moving)
+          const targetSteer = (this.keys.left ? 1 : 0) - (this.keys.right ? 1 : 0);
+          this.carSteerAngle += (targetSteer * 0.6 - this.carSteerAngle) * Math.min(dt * 8.0, 1.0);
+
+          if (Math.abs(this.carSpeed) > 0.1) {
+            // Speed-sensitive steering ratio
+            const speedRatio = Math.min(Math.abs(this.carSpeed) / 18.0, 1.0);
+            const steerSensitivity = 1.6 - speedRatio * 0.85;
+            const turnRate = this.carSteerAngle * steerSensitivity * (this.carSpeed / 12.0);
+            this.carHeading += turnRate * dt;
+          }
+
+          // Translate car position forward along heading vector
+          const moveDist = this.carSpeed * dt;
+          this.carGroup.position.x += Math.sin(this.carHeading) * moveDist;
+          this.carGroup.position.z += Math.cos(this.carHeading) * moveDist;
+          this.carGroup.rotation.y = this.carHeading;
+
+          // Suspension lean / body roll
+          const rollAngle = -this.carSteerAngle * Math.min(Math.abs(this.carSpeed) / 20.0, 1.0) * 0.06;
+          this.carGroup.rotation.z = rollAngle;
+
+          // Animate Wheels (steer front wheels & roll all wheels)
+          this.carWheels.forEach(w => {
+            if (w.isFront) {
+              w.pivot.rotation.y = this.carSteerAngle * 0.7;
+            }
+            w.mesh.rotation.x += (this.carSpeed / 0.38) * dt;
+          });
+
+          // Steer cockpit steering wheel
+          if (this.steeringWheel) {
+            this.steeringWheel.rotation.z = -this.carSteerAngle * 2.4;
+          }
+
+          // Engine Sound Update
+          const rpmRatio = Math.min(Math.abs(this.carSpeed) / this.maxForwardSpeed, 1.0);
+          soundEngine.updateEngine(rpmRatio, true);
+
+        } else {
+          // -------------------------------------------------------------
+          // PEDESTRIAN WALKING MODE
+          // -------------------------------------------------------------
+          let moveX = 0;
+          let moveZ = 0;
+          if (this.keys.forward) moveZ += 1;
+          if (this.keys.backward) moveZ -= 1;
+          if (this.keys.left) moveX += 1;
+          if (this.keys.right) moveX -= 1;
+
+          const isMoving = (moveX !== 0 || moveZ !== 0);
+
+          if (isMoving) {
+            const angle = Math.atan2(moveX, moveZ);
+            this.playerHeading = angle;
+            this.playerGroup.rotation.y = angle;
+
+            const walkDist = this.playerWalkSpeed * dt;
+            this.playerPos.x += Math.sin(angle) * walkDist;
+            this.playerPos.z += Math.cos(angle) * walkDist;
+            this.playerGroup.position.copy(this.playerPos);
+
+            // Walking swing animation
+            const swing = Math.sin(this.clock.getElapsedTime() * 10) * 0.55;
+            this.playerLeftLeg.rotation.x = swing;
+            this.playerRightLeg.rotation.x = -swing;
+            this.playerLeftArm.rotation.x = -swing;
+            this.playerRightArm.rotation.x = swing;
+          } else {
+            // Reset to standing pose
+            this.playerLeftLeg.rotation.x = 0;
+            this.playerRightLeg.rotation.x = 0;
+            this.playerLeftArm.rotation.x = 0;
+            this.playerRightArm.rotation.x = 0;
+          }
+
+          // Proximity to car check for UI prompt
+          const distToCar = this.playerPos.distanceTo(this.carGroup.position);
+          const promptEl = document.getElementById('enter-prompt');
+          if (distToCar < 4.8) {
+            promptEl.style.display = 'block';
+          } else {
+            promptEl.style.display = 'none';
+          }
+
+          soundEngine.updateEngine(0, false);
+        }
+      }
+
+      updateCamera(dt) {
+        if (this.playerInCar) {
+          if (this.cameraMode === 'first_person') {
+            // First-person Driver Cockpit View: Eye height at driver seat
+            const driverEyeLocal = new THREE.Vector3(-0.35, 1.25, 0.15);
+            const driverEyeWorld = driverEyeLocal.applyMatrix4(this.carGroup.matrixWorld);
+            this.camera.position.copy(driverEyeWorld);
+
+            // Look forward through windshield with slight corner look-ahead
+            const forwardLook = new THREE.Vector3(
+              Math.sin(this.carHeading + this.carSteerAngle * 0.3) * 30,
+              -0.5,
+              Math.cos(this.carHeading + this.carSteerAngle * 0.3) * 30
+            );
+            this.camera.lookAt(driverEyeWorld.clone().add(forwardLook));
+
+          } else {
+            // Chase Camera (Third Person behind car)
+            const chaseDist = 7.2 + Math.min(Math.abs(this.carSpeed) * 0.08, 3.0);
+            const chaseHeight = 3.2;
+
+            const targetPos = new THREE.Vector3(
+              this.carGroup.position.x - Math.sin(this.carHeading) * chaseDist,
+              this.carGroup.position.y + chaseHeight,
+              this.carGroup.position.z - Math.cos(this.carHeading) * chaseDist
+            );
+
+            // Smooth exponential damping follow
+            this.camera.position.lerp(targetPos, Math.min(dt * 7.5, 1.0));
+
+            // Look slightly ahead of car
+            const lookTarget = new THREE.Vector3(
+              this.carGroup.position.x + Math.sin(this.carHeading) * 4.0,
+              this.carGroup.position.y + 1.2,
+              this.carGroup.position.z + Math.cos(this.carHeading) * 4.0
+            );
+            this.camera.lookAt(lookTarget);
+          }
+        } else {
+          // Camera following pedestrian on foot
+          const camTarget = new THREE.Vector3(
+            this.playerPos.x - Math.sin(this.playerHeading) * 6.5,
+            this.playerPos.y + 3.8,
+            this.playerPos.z - Math.cos(this.playerHeading) * 6.5
+          );
+          this.camera.position.lerp(camTarget, Math.min(dt * 6.0, 1.0));
+          this.camera.lookAt(new THREE.Vector3(this.playerPos.x, this.playerPos.y + 1.2, this.playerPos.z));
+        }
+
+        // Keep sunlight aligned near player for consistent sharp shadows
+        const focusPos = this.playerInCar ? this.carGroup.position : this.playerPos;
+        this.sunLight.position.set(focusPos.x + 120, 240, focusPos.z + 140);
+        this.sunLight.target.position.copy(focusPos);
+        this.sunLight.target.updateMatrixWorld();
+      }
+
+      updateAmbientWorld(dt) {
+        // Move ambient traffic cars
+        this.trafficCars.forEach(tc => {
+          if (tc.isAirportRoute) {
+            tc.group.position.x += tc.speed * dt;
+            if (tc.group.position.x > 460) tc.group.position.x = 180;
+          } else {
+            tc.group.position.z += tc.dir * tc.speed * dt;
+            if (tc.group.position.z > 270) tc.group.position.z = -270;
+            if (tc.group.position.z < -270) tc.group.position.z = 270;
+          }
+        });
+
+        // Animate pedestrians
+        const time = this.clock.getElapsedTime();
+        this.pedestrians.forEach(p => {
+          if (!p.isWorker) {
+            p.group.position.z += p.dir * p.walkSpeed * dt;
+            if (p.group.position.z > 260) p.dir = -1;
+            if (p.group.position.z < -260) p.dir = 1;
+            p.group.rotation.y = p.dir === 1 ? 0 : Math.PI;
+
+            // Leg swing
+            const swing = Math.sin(time * 6 + p.animPhase) * 0.45;
+            p.leftLeg.rotation.x = swing;
+            p.rightLeg.rotation.x = -swing;
+          }
+        });
+
+        // Drift clouds
+        this.clouds.forEach(c => {
+          c.position.x += 1.8 * dt;
+          if (c.position.x > 600) c.position.x = -600;
+        });
+      }
+
+      updateHUD() {
+        // Speed in km/h
+        const speedKmh = Math.round(Math.abs(this.carSpeed) * 3.6);
+        document.getElementById('speed-display').innerText = this.playerInCar ? speedKmh : 0;
+
+        // Gear indicator
+        const gearEl = document.getElementById('gear-indicator');
+        if (!this.playerInCar) {
+          gearEl.innerText = 'P';
+          gearEl.style.background = '#64748b';
+        } else if (this.carSpeed < -0.2) {
+          gearEl.innerText = 'R';
+          gearEl.style.background = '#ef4444';
+        } else if (Math.abs(this.carSpeed) < 0.2) {
+          gearEl.innerText = 'N';
+          gearEl.style.background = '#0284c7';
+        } else {
+          gearEl.innerText = 'D';
+          gearEl.style.background = '#10b981';
+        }
+
+        // Clock update
+        this.simTime += 0.02;
+        const totalMinutes = Math.floor(this.simTime) % (24 * 60);
+        const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
+        const mins = (totalMinutes % 60).toString().padStart(2, '0');
+        document.getElementById('clock-display').innerText = `${hours}:${mins} | 23°C Clear`;
+      }
+
+      drawMiniMap() {
+        const ctx = this.minimapCtx;
+        const w = this.minimapCanvas.width;
+        const h = this.minimapCanvas.height;
+
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, w, h);
+
+        const focusX = this.playerInCar ? this.carGroup.position.x : this.playerPos.x;
+        const focusZ = this.playerInCar ? this.carGroup.position.z : this.playerPos.z;
+        const heading = this.playerInCar ? this.carHeading : this.playerHeading;
+
+        // Map scale: meters to canvas pixels
+        const scale = 0.35;
+        const cx = w / 2;
+        const cy = h / 2;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        // Draw roads grid
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 9;
+
+        // Main Avenue
+        ctx.beginPath();
+        const mainX = (0 - focusX) * scale;
+        ctx.moveTo(mainX, (-300 - focusZ) * scale);
+        ctx.lineTo(mainX, (300 - focusZ) * scale);
+        ctx.stroke();
+
+        // Cross streets
+        const ewZ = [-220, -140, -60, 20, 100, 180];
+        ctx.lineWidth = 5;
+        ewZ.forEach(z => {
+          const sy = (z - focusZ) * scale;
+          ctx.beginPath();
+          ctx.moveTo((-220 - focusX) * scale, sy);
+          ctx.lineTo((220 - focusX) * scale, sy);
+          ctx.stroke();
+        });
+
+        // Airport connector road
+        ctx.beginPath();
+        ctx.moveTo((180 - focusX) * scale, (180 - focusZ) * scale);
+        ctx.lineTo((450 - focusX) * scale, (180 - focusZ) * scale);
+        ctx.stroke();
+
+        // Airport Runway on map
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 14;
+        ctx.beginPath();
+        const rX = (580 - focusX) * scale;
+        ctx.moveTo(rX, (110 - focusZ) * scale);
+        ctx.lineTo(rX, (530 - focusZ) * scale);
+        ctx.stroke();
+
+        // Airport Terminal icon on map
+        ctx.fillStyle = '#0284c7';
+        ctx.fillRect(
+          (390 - 45 - focusX) * scale,
+          (320 - 25 - focusZ) * scale,
+          90 * scale,
+          50 * scale
+        );
+
+        // Draw Buildings on map
+        ctx.fillStyle = '#1e293b';
+        this.buildings.forEach(b => {
+          const bx = (b.x - b.w / 2 - focusX) * scale;
+          const bz = (b.z - b.d / 2 - focusZ) * scale;
+          ctx.fillRect(bx, bz, b.w * scale, b.d * scale);
+        });
+
+        // Draw Traffic cars on map
+        ctx.fillStyle = '#eab308';
+        this.trafficCars.forEach(tc => {
+          const tx = (tc.group.position.x - focusX) * scale;
+          const tz = (tc.group.position.z - focusZ) * scale;
+          ctx.beginPath();
+          ctx.arc(tx, tz, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        ctx.restore();
+
+        // Draw Player Arrow at center of map
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(-heading + Math.PI);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.moveTo(0, 7);
+        ctx.lineTo(-5, -6);
+        ctx.lineTo(0, -3);
+        ctx.lineTo(5, -6);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      animate() {
+        requestAnimationFrame(this.animate);
+        const dt = Math.min(this.clock.getDelta(), 0.1);
+
+        this.updatePhysics(dt);
+        this.updateCamera(dt);
+        this.updateAmbientWorld(dt);
+        this.updateHUD();
+        this.drawMiniMap();
+
+        this.renderer.render(this.scene, this.camera);
+      }
+    }
+
+    // Initialize City Drive once DOM is ready
+    window.addEventListener('DOMContentLoaded', () => {
+      new CityDriveApp();
+    });
+  </script>
+</body>
+</html>
